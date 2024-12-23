@@ -3,92 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verificador Mega-Sena</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Página Inicial</title>
     <style>
         body {
             margin: 0;
+            padding: 0;
+            background: url('Fundo.jpg') no-repeat center center fixed;
+            background-size: cover;
             font-family: Arial, sans-serif;
-            background-color: #1A237E;
-            color: white;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
         }
-
-        .container {
-            text-align: center;
-        }
-
-        h1 {
-            font-size: 36px;
-            margin-bottom: 10px;
-        }
-
-        h2 {
-            font-size: 20px;
-            margin-top: 0;
+        .logo {
+            width: 70%;
+            max-width: 600px;
             margin-bottom: 30px;
         }
-
-        form {
-            display: inline-block;
-            text-align: left;
-        }
-
-        label {
-            display: block;
+        .button {
+            background-color: #ffffff;
+            color: #1A237E;
             font-size: 18px;
-            margin-bottom: 5px;
-        }
-
-        input {
-            width: 300px;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
             border-radius: 5px;
-        }
-
-        button {
-            width: 100%;
-            padding: 10px;
             border: none;
-            border-radius: 5px;
-            background-color: #3949AB;
-            color: white;
-            font-size: 16px;
             cursor: pointer;
         }
-
-        button:hover {
-            background-color: #303F9F;
-        }
-
-        a {
-            color: white;
-            text-decoration: underline;
-            display: block;
-            margin-top: 15px;
-            font-size: 16px;
+        .button:hover {
+            background-color: #dddddd;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>BOLÃO MEGA SENA DA VIRADA 2024</h1>
-        <h2>EXPERIMENTAL AGRÍCOLA - PRIMOR</h2>
-        <form action="login.html" method="POST">
-            <label for="usuario">Login:</label>
-            <input type="text" id="usuario" name="usuario" placeholder="Digite seu usuário">
-
-            <label for="senha">Senha:</label>
-            <input type="password" id="senha" name="senha" placeholder="Digite sua senha">
-
-            <button type="submit">ACESSAR</button>
-        </form>
-        <a href="#">PRIMEIRO ACESSO</a>
-    </div>
+    <img src="Logo Bolão.png" alt="Logotipo Bolão" class="logo">
+    <a href="pagina2.html" class="button">Entrar</a>
 </body>
 </html>
+
