@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados Jogos Fernando</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #001f3f; /* Azul escuro semelhante ao usado nas páginas anteriores */
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        .input-section {
+            margin: 20px 0;
+        }
+        .results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Resultados Jogos Fernando</h1>
+    <div class="input-section">
+        <label for="dezenas">Digite as dezenas:</label>
+        <input type="text" id="dezenas" placeholder="Ex: 010203040506" maxlength="12">
+        <button onclick="verificarResultado()">Verificar</button>
+    </div>
+    <div class="results" id="results">
+        <!-- Resultados aparecerão aqui -->
+    </div>
+
+    <script>
+        async function verificarResultado() {
+            const input = document.getElementById('dezenas').value;
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            if (input.length !== 12 || !/^[0-9]+$/.test(input)) {
+                resultsDiv.innerHTML = '<p>Por favor, insira exatamente 12 números.</p>';
+                return;
+            }
+
+            const dezenas = input.match(/.{1,2}/g).map(Number).sort((a, b) => a - b);
+
+            try {
+                const response = await fetch('cadastro_bolao_novo.json');
+                const data = await response.json();
+
+                let foundResults = false;
+
+                data.forEach(entry => {
+                    const jogoDezenas = entry.JOGO.split('-').map(Number);
+                    const matchCount = dezenas.filter(num => jogoDezenas.includes(num)).length;
+
+                    if (matchCount >= 4) {
+                        foundResults = true;
+                        resultsDiv.innerHTML += `
+                            <p><strong>ACERTAMOS ${matchCount === 4 ? 'A QUADRA' : matchCount === 5 ? 'A QUINA' : 'A SENA'}</strong></p>
+                            <p><strong>Nome do Bolão:</strong> ${entry['NOME BOLÃO']}</p>
+                            <p><strong>ID do Bolão:</strong> ${entry['ID BOLÃO']}</p>
+                            <p><strong>ID Jogo:</strong> ${entry['ID JOGO']}</p>
+                            <p><strong>Dezenas do Jogo:</strong> ${entry.JOGO}</p>
+                            <hr>
+                        `;
+                    }
+                });
+
+                if (!foundResults) {
+                    resultsDiv.innerHTML = '<p>NÃO FOI DESTA VEZ</p>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = '<p>Erro ao carregar os dados.</p>';
+            }
+        }
+    </script>
+</body>
+</html>
