@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Verificar Resultados - Lotofácil</title>
+<style>
+    body { margin:0; padding:0; font-family: Arial, sans-serif; background:#1A237E; color:#fff; display:flex; flex-direction:column; align-items:center; min-height:100vh; padding:20px; }
+    h1 { font-size:28px; margin-bottom:8px; text-align:center; }
+    p.hint { margin:0 0 14px 0; opacity:0.95; text-align:center; }
+    input { margin:12px 0; padding:10px; font-size:18px; border-radius:5px; border:none; width:92%; max-width:560px; text-align:center; }
+    button { padding:10px 20px; font-size:18px; background:#fff; color:#1A237E; border:none; border-radius:5px; cursor:pointer; }
+    button:hover { background:#ddd; }
+    #status { margin-top: 6px; font-size:14px; opacity:0.9; }
+    #results { margin-top:24px; width:100%; max-width:880px; }
+    .card { background: rgba(255,255,255,0.08); padding:14px; margin:10px 0; border-radius:8px; border:1px solid rgba(255,255,255,0.15); }
+    .title { font-weight:700; font-size:20px; margin-bottom:6px; }
+    .meta { font-size:14px; opacity:0.9; margin-bottom:6px; }
+    code { background: rgba(255,255,255,0.1); padding: 0 4px; border-radius:4px; }
+</style>
+<script>
+const SORTEIO_COUNT = 15;
+
+// Mapa fixo de IDs para nomes de bolões
+const nomesBoloes = {
+  "A265-CE16D00F20D695841D-2": "Bolão 01",
+  "A265-7D3690046A39036205-8": "Bolão 02"
+};
+
+function parseSemSeparadores(digits, expectedCount) {
+  const nums = [];
+  let i = 0;
+  while (i < digits.length) {
+    if (nums.length > expectedCount) break;
+    const ch = digits[i];
+    if (ch === '0') {
+      if (i + 1 >= digits.length) return null;
+      const n = parseInt(digits.substr(i, 2), 10);
+      if (n < 1 || n > 9) return null;
+      nums.push(n); i += 2;
+    } else if (ch === '1' || ch === '2') {
+      if (i + 1 < digits.length) {
+        const two = parseInt(digits.substr(i, 2), 10);
+        if (two >= 10 && two <= 25) { nums.push(two); i += 2; continue; }
+      }
+      const one = parseInt(ch, 10);
+      if (one < 1 || one > 9) return null;
+      nums.push(one); i += 1;
+    } else {
+      const one = parseInt(ch, 10);
+      if (one < 1 || one > 9) return null;
+      nums.push(one); i += 1;
+    }
+    if (nums.length === expectedCount && i < digits.length) { return null; }
+  }
+  return nums;
+}
+
+function processarEntrada() {
+  const input = document.getElementById("dezenas").value.trim();
+  const status = document.getElementById("status");
+  status.textContent = "";
+  const onlyDigits = input.replace(/[^0-9]/g, "");
+  let numeros = parseSemSeparadores(onlyDigits, SORTEIO_COUNT);
+  if (!numeros) {
+    const candidatos = input.split(/[^0-9]+/).filter(Boolean).map(x => parseInt(x,10));
+    if (candidatos.length === SORTEIO_COUNT && candidatos.every(n => n>=0 && n<=25)) { numeros = candidatos; }
+  }
+  if (!numeros) {
+    const msg = "Entrada inválida. Digite as 15 dezenas do sorteio SEM separadores (ex.: 010203...)
+ou use separadores (espaço, vírgula, hífen). Aceita 0 à esquerda.";
+    alert(msg); document.getElementById("status").textContent = msg; return null;
+  }
+  if (numeros.some(n => n < 1 || n > 25)) { alert("Todas as dezenas do sorteio devem estar entre 01 e 25."); return null; }
+  if ((new Set(numeros)).size !== SORTEIO_COUNT) { alert("As 15 dezenas do sorteio não podem se repetir."); return null; }
+  numeros.sort((a,b) => a - b);
+  document.getElementById("resultadoEntrada").innerText = "Sorteio processado: " + numeros.map(n => String(n).padStart(2,"0")).join(" - ");
+  return numeros;
+}
+
+async function verificarResultados() {
+  const numeros = processarEntrada();
+  if (!numeros) return;
+  const status = document.getElementById("status");
+  status.textContent = "Carregando dados...";
+
+  let usuarios, bolao;
+  try {
+    const [usuariosResp, bolaoResp] = await Promise.all([
+      fetch("usuarios_com_palpite_lotofacil.json"),
+      fetch("bolao_lotofacil.json")
+    ]);
+    if (!usuariosResp.ok || !bolaoResp.ok) throw new Error("HTTP não OK");
+    usuarios = await usuariosResp.json();
+    bolao = await bolaoResp.json();
+  } catch (e) {
+    const msg = "Erro ao carregar os arquivos JSON. Garanta que estão no mesmo diretório do HTML e que você está acessando via HTTP/HTTPS.";
+    alert(msg); status.textContent = msg; return;
+  }
+
+  const resultsDiv = document.getElementById("results");
+  resultsDiv.innerHTML = "";
+
+  let encontrou = false;
+  const parseJogo = (str) => str.split(/[^0-9]+/).filter(Boolean).map(x => parseInt(x, 10));
+  const contarAcertos = (lista) => lista.filter(x => numeros.includes(x)).length;
+
+  bolao.forEach(j => {
+    const dezenasBolao = parseJogo(j["JOGO"]);
+    const acertosBolao = contarAcertos(dezenasBolao);
+
+    const idBolao = j["ID BOLÃO"] || j["ID BOLAO"] || "";
+    const nomeBolao = nomesBoloes[idBolao] || "Bolão"; // usa nome fixo se ID for conhecido
+    const idJogo = j["ID JOGO"] || "";
+
+    usuarios.forEach(u => {
+      const nomeUsuario = u["Usuários"] || u["Usuário"] || u["JOGADOR"] || "Participante";
+      Object.keys(u).filter(k => /^Jogo\s+\d+/.test(k)).forEach(chaveJogo => {
+        const dezenasPalpite = parseJogo(u[chaveJogo]);
+        const acertosPalpite = contarAcertos(dezenasPalpite);
+
+        if (acertosBolao >= 11 && acertosBolao === acertosPalpite) {
+          encontrou = true;
+
+          let titulo = "";
+          if (acertosBolao === 15) titulo = "15 ACERTOS (PREMIAÇÃO MÁXIMA)";
+          else if (acertosBolao === 14) titulo = "14 ACERTOS";
+          else if (acertosBolao === 13) titulo = "13 ACERTOS";
+          else if (acertosBolao === 12) titulo = "12 ACERTOS";
+          else if (acertosBolao === 11) titulo = "11 ACERTOS";
+
+          const acertosLista = dezenasBolao.filter(n => numeros.includes(n))
+                                           .map(n => String(n).padStart(2,"0")).join(", ");
+
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <div class="title">${titulo}</div>
+            <div class="meta">Bolão: <b>${nomeBolao}</b> | ID do Bolão: <b>${idBolao}</b> | Linha: <b>${idJogo}</b></div>
+            <div>Acertos: ${acertosLista} (${acertosBolao})</div>
+            <div>Palpite: <b>${nomeUsuario}</b> (${chaveJogo})</div>
+          `;
+          resultsDiv.appendChild(card);
+        }
+      });
+    });
+  });
+
+  status.textContent = encontrou ? "Conferência concluída." : "NÃO FOI DESTA VEZ";
+}
+</script>
+</head>
+<body>
+  <h1>Verificar Resultados - Lotofácil</h1>
+  <p class="hint">Digite as <b>15 dezenas do sorteio</b> em QUALQUER ORDEM e <b>SEM separadores</b> (ex.: <code>010203040506070809101112131</code>).<br/>
+  Também aceita separadores (espaço, vírgula, hífen) e números sem zero à esquerda.</p>
+  <input id="dezenas" type="text" placeholder="Cole ou digite as 15 dezenas do sorteio" />
+  <button onclick="verificarResultados()">Verificar</button>
+  <div id="status"></div>
+  <p id="resultadoEntrada" style="margin-top:12px; font-size:18px;"></p>
+  <div id="results"></div>
+</body>
+</html>
