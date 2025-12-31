@@ -3,101 +3,177 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Resultados - Mega-Sena (6 dezenas)</title>
+<title>Verificador Mega-Sena</title>
 
 <style>
- body{margin:0;padding:0;font-family:Arial,sans-serif;background:#0b1354;color:#fff;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px}
- h1{font-size:24px;margin:6px 0 2px;text-align:center}
- .badge{font-size:12px;opacity:.9;margin-bottom:10px}
- input{margin:12px 0;padding:10px;font-size:18px;border-radius:5px;border:none;width:92%;max-width:560px;text-align:center}
- button{padding:10px 20px;font-size:18px;background:#fff;color:#0b1354;border:none;border-radius:5px;cursor:pointer}
+ body{
+  margin:0;
+  padding:0;
+  font-family:Arial,sans-serif;
+  background:#0b1354;
+  color:#fff;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  min-height:100vh;
+  padding:20px
+ }
+ h1{font-size:24px;margin:10px 0;text-align:center}
+ .badge{font-size:13px;opacity:.9;margin-bottom:10px}
+ input{
+  margin:12px 0;
+  padding:12px;
+  font-size:18px;
+  border-radius:6px;
+  border:none;
+  width:92%;
+  max-width:520px;
+  text-align:center
+ }
+ button{
+  padding:10px 25px;
+  font-size:18px;
+  background:#fff;
+  color:#0b1354;
+  border:none;
+  border-radius:6px;
+  cursor:pointer
+ }
  button:hover{background:#ddd}
- #status,#resultadoEntrada{margin-top:8px;font-size:14px;opacity:.95;white-space:pre-wrap}
- #results{margin-top:16px;width:100%;max-width:900px}
- .card{background:rgba(255,255,255,.08);padding:14px;margin:10px 0;border-radius:8px;border:1px solid rgba(255,255,255,.15)}
- .title{font-weight:700;font-size:18px;margin-bottom:6px}
- .meta{font-size:13px;opacity:.9;margin-bottom:6px}
- .pill{display:inline-block;background:#16a34a;color:#fff;border-radius:999px;padding:2px 8px;font-size:12px;margin-left:6px}
+ #status,#resultadoEntrada{
+  margin-top:10px;
+  font-size:14px;
+  text-align:center
+ }
+ #results{
+  margin-top:20px;
+  width:100%;
+  max-width:900px
+ }
+ .card{
+  background:rgba(255,255,255,.08);
+  padding:15px;
+  margin:10px 0;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.15)
+ }
+ .title{
+  font-weight:bold;
+  font-size:18px;
+  margin-bottom:6px
+ }
+ .meta{
+  font-size:13px;
+  opacity:.9
+ }
 </style>
 
 <script>
 const SORTEIO_COUNT = 6;
+
+// ======= PARSE PARA MEGA-SENA =======
+function parseSemSeparadoresMega(digits, expectedCount){
+  if (digits.length !== expectedCount * 2) return null;
+
+  const nums=[];
+  for(let i=0;i<digits.length;i+=2){
+    const n=parseInt(digits.substr(i,2),10);
+    if(n<1||n>60) return null;
+    nums.push(n);
+  }
+  return nums;
+}
 
 function processarEntrada(){
   const input=document.getElementById("dezenas").value.trim();
   const status=document.getElementById("status");
   status.textContent="";
 
-  const numeros=input.split(/[^0-9]+/)
-    .filter(Boolean)
-    .map(n=>parseInt(n,10));
+  const onlyDigits=input.replace(/[^0-9]/g,"");
+  let numeros=null;
 
-  if(numeros.length!==SORTEIO_COUNT){
-    alert("Digite exatamente 6 dezenas.");
+  // Sem separadores (010203040506)
+  numeros=parseSemSeparadoresMega(onlyDigits,SORTEIO_COUNT);
+
+  // Com separadores
+  if(!numeros){
+    const partes=input
+      .split(/[^0-9]+/)
+      .filter(Boolean)
+      .map(n=>parseInt(n,10));
+    if(partes.length===SORTEIO_COUNT) numeros=partes;
+  }
+
+  if(!numeros){
+    alert("Digite exatamente 6 dezenas (01 a 60).");
     return null;
   }
+
   if(numeros.some(n=>n<1||n>60)){
     alert("As dezenas devem estar entre 01 e 60.");
     return null;
   }
+
   if((new Set(numeros)).size!==SORTEIO_COUNT){
     alert("As dezenas não podem se repetir.");
     return null;
   }
 
   numeros.sort((a,b)=>a-b);
-  document.getElementById("resultadoEntrada").textContent=
-    "Sorteio processado: "+numeros.map(n=>String(n).padStart(2,"0")).join(" - ");
+  document.getElementById("resultadoEntrada").textContent =
+    "Sorteio processado: " +
+    numeros.map(n=>String(n).padStart(2,"0")).join(" - ");
+
   return numeros;
 }
 
+// ======= VERIFICAÇÃO =======
 async function verificarResultados(){
   const numeros=processarEntrada();
   if(!numeros) return;
 
-  let usuarios,bolao;
+  let bolao;
   try{
-    const [u,b]=await Promise.all([
-      fetch("usuarios_com_palpite_lotofacil.json"),
-      fetch("bolao_lotofacil.json")
-    ]);
-    usuarios=await u.json();
-    bolao=await b.json();
+    const res=await fetch("bolao_lotofacil.json");
+    bolao=await res.json();
   }catch{
-    alert("Erro ao carregar os arquivos JSON.");
+    alert("Erro ao carregar bolao_lotofacil.json");
     return;
   }
 
   const results=document.getElementById("results");
   results.innerHTML="";
-  let houvePremio=false;
+  let premiou=false;
 
-  const parseJogo=str=>str.split(/[^0-9]+/).map(n=>parseInt(n,10));
-  const contar=(arr)=>arr.filter(n=>numeros.includes(n)).length;
+  const parseJogo=j=>j.split(/[^0-9]+/).map(n=>parseInt(n,10));
+  const contar=j=>j.filter(n=>numeros.includes(n)).length;
 
-  bolao.forEach(j=>{
-    const dezenasBolao=parseJogo(j["JOGO"]);
-    const acertos=contar(dezenasBolao);
+  bolao.forEach(linha=>{
+    const dezenas=parseJogo(linha["JOGO"]);
+    const acertos=contar(dezenas);
 
-    let mensagem="";
-    if(acertos===6) mensagem="Vocês Ganharam a Mega Sena!";
-    else if(acertos===5) mensagem="Vocês Ganharam a Quina!";
-    else if(acertos===4) mensagem="Vocês Ganharam a Quadra!";
+    let msg="";
+    if(acertos===6) msg="Vocês Ganharam a Mega Sena!";
+    else if(acertos===5) msg="Vocês Ganharam a Quina!";
+    else if(acertos===4) msg="Vocês Ganharam a Quadra!";
     else return;
 
-    houvePremio=true;
+    premiou=true;
 
     const card=document.createElement("div");
     card.className="card";
     card.innerHTML=`
-      <div class="title">${mensagem}</div>
-      <div class="meta">Bolão: <b>${j["NOME BOLAO"]}</b> | Linha: <b>${j["ID JOGO"]}</b></div>
-      <div>Acertos: ${acertos}</div>
+      <div class="title">${msg}</div>
+      <div class="meta">
+        Bolão: <b>${linha["NOME BOLAO"]||""}</b> |
+        Linha: <b>${linha["ID JOGO"]||""}</b> |
+        Acertos: <b>${acertos}</b>
+      </div>
     `;
     results.appendChild(card);
   });
 
-  if(!houvePremio){
+  if(!premiou){
     results.innerHTML="<div class='card'><b>Não Foi Desta Vez!</b></div>";
   }
 }
@@ -105,8 +181,11 @@ async function verificarResultados(){
 </head>
 
 <body>
-<h1>Verificar Resultados - Mega-Sena</h1>
-<div class="badge">Sorteio esperado: <b>6 dezenas (01 a 60)</b></div>
+
+<h1>Verificador Mega-Sena</h1>
+<div class="badge">
+Digite <b>6 dezenas</b> (01 a 60) — ex.: <code>010203040506</code> ou <code>01-02-03-04-05-06</code>
+</div>
 
 <input id="dezenas" type="text" placeholder="Digite as 6 dezenas do sorteio" />
 <button onclick="verificarResultados()">Verificar</button>
@@ -114,6 +193,7 @@ async function verificarResultados(){
 <div id="status"></div>
 <p id="resultadoEntrada"></p>
 <div id="results"></div>
+
 </body>
 </html>
 
