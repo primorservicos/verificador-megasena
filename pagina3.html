@@ -6,194 +6,182 @@
 <title>Verificador Mega-Sena</title>
 
 <style>
- body{
-  margin:0;
-  padding:0;
-  font-family:Arial,sans-serif;
-  background:#0b1354;
-  color:#fff;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  min-height:100vh;
-  padding:20px
- }
- h1{font-size:24px;margin:10px 0;text-align:center}
- .badge{font-size:13px;opacity:.9;margin-bottom:10px}
- input{
-  margin:12px 0;
-  padding:12px;
-  font-size:18px;
-  border-radius:6px;
-  border:none;
-  width:92%;
-  max-width:520px;
-  text-align:center
- }
- button{
-  padding:10px 25px;
-  font-size:18px;
-  background:#fff;
-  color:#0b1354;
-  border:none;
-  border-radius:6px;
-  cursor:pointer
- }
- button:hover{background:#ddd}
- #status,#resultadoEntrada{
-  margin-top:10px;
-  font-size:14px;
-  text-align:center
- }
- #results{
-  margin-top:20px;
-  width:100%;
-  max-width:900px
- }
- .card{
-  background:rgba(255,255,255,.08);
-  padding:15px;
-  margin:10px 0;
-  border-radius:8px;
-  border:1px solid rgba(255,255,255,.15)
- }
- .title{
-  font-weight:bold;
-  font-size:18px;
-  margin-bottom:6px
- }
- .meta{
-  font-size:13px;
-  opacity:.9
- }
+  body{
+    margin:0;padding:0;font-family:Arial,sans-serif;background:#0b1354;color:#fff;
+    display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px
+  }
+  h1{font-size:24px;margin:10px 0;text-align:center}
+  .badge{font-size:13px;opacity:.9;margin-bottom:10px;text-align:center;max-width:900px}
+  input{
+    margin:12px 0;padding:12px;font-size:18px;border-radius:6px;border:none;
+    width:92%;max-width:520px;text-align:center
+  }
+  button{
+    padding:10px 25px;font-size:18px;background:#fff;color:#0b1354;border:none;
+    border-radius:6px;cursor:pointer
+  }
+  button:hover{background:#ddd}
+  #resultadoEntrada{margin-top:10px;font-size:14px;text-align:center;opacity:.95}
+  #status{margin-top:8px;font-size:13px;opacity:.9;white-space:pre-wrap;text-align:center;max-width:900px}
+  #results{margin-top:20px;width:100%;max-width:900px}
+  .card{
+    background:rgba(255,255,255,.08);padding:15px;margin:10px 0;border-radius:8px;
+    border:1px solid rgba(255,255,255,.15)
+  }
+  .title{font-weight:bold;font-size:18px;margin-bottom:8px}
+  .meta{font-size:13px;opacity:.95;line-height:1.45}
+  code{background:rgba(255,255,255,.12);padding:1px 6px;border-radius:6px}
+  .small{font-size:12px;opacity:.9}
 </style>
 
 <script>
 const SORTEIO_COUNT = 6;
 
-// ======= PARSE PARA MEGA-SENA =======
-function parseSemSeparadoresMega(digits, expectedCount){
-  if (digits.length !== expectedCount * 2) return null;
+function pad2(n){ return String(n).padStart(2,"0"); }
 
+// Normaliza um jogo para "01-02-03-04-05-06"
+function normalizarJogoQualquer(str){
+  const nums = String(str || "")
+    .split(/[^0-9]+/)
+    .filter(Boolean)
+    .map(x => parseInt(x,10))
+    .filter(n => !Number.isNaN(n));
+
+  const filtrado = nums.filter(n => n>=1 && n<=60);
+
+  if (filtrado.length !== 6) return null;
+  if (new Set(filtrado).size !== 6) return null;
+
+  filtrado.sort((a,b)=>a-b);
+  return filtrado.map(pad2).join("-");
+}
+
+// Entrada sem separadores: exige 12 dígitos (6 dezenas * 2)
+function parseSemSeparadoresMega(digits){
+  if (digits.length !== 12) return null;
   const nums=[];
   for(let i=0;i<digits.length;i+=2){
     const n=parseInt(digits.substr(i,2),10);
-    if(n<1||n>60) return null;
+    if(n<1 || n>60) return null;
     nums.push(n);
   }
   return nums;
 }
 
 function processarEntrada(){
-  const input=document.getElementById("dezenas").value.trim();
-  const status=document.getElementById("status");
-  status.textContent="";
+  const input = document.getElementById("dezenas").value.trim();
+  const status = document.getElementById("status");
+  status.textContent = "";
 
-  const onlyDigits=input.replace(/[^0-9]/g,"");
-  let numeros=null;
+  const onlyDigits = input.replace(/[^0-9]/g,"");
+  let numeros = null;
 
-  // Sem separadores (010203040506)
-  numeros=parseSemSeparadoresMega(onlyDigits,SORTEIO_COUNT);
+  // Sem separadores: 010203040506
+  numeros = parseSemSeparadoresMega(onlyDigits);
 
-  // Com separadores
+  // Com separadores: 01-02-03-04-05-06 / 1 2 3 4 5 6 / etc.
   if(!numeros){
-    const partes=input
+    const partes = input
       .split(/[^0-9]+/)
       .filter(Boolean)
-      .map(n=>parseInt(n,10));
-    if(partes.length===SORTEIO_COUNT) numeros=partes;
+      .map(x => parseInt(x,10))
+      .filter(n => !Number.isNaN(n));
+
+    if(partes.length === SORTEIO_COUNT) numeros = partes;
   }
 
   if(!numeros){
-    alert("Digite exatamente 6 dezenas (01 a 60).");
+    alert("Digite exatamente 6 dezenas (01 a 60). Ex.: 010203040506 ou 01-02-03-04-05-06");
     return null;
   }
-
-  if(numeros.some(n=>n<1||n>60)){
+  if(numeros.some(n => n < 1 || n > 60)){
     alert("As dezenas devem estar entre 01 e 60.");
     return null;
   }
-
-  if((new Set(numeros)).size!==SORTEIO_COUNT){
+  if((new Set(numeros)).size !== SORTEIO_COUNT){
     alert("As dezenas não podem se repetir.");
     return null;
   }
 
   numeros.sort((a,b)=>a-b);
   document.getElementById("resultadoEntrada").textContent =
-    "Sorteio processado: " +
-    numeros.map(n=>String(n).padStart(2,"0")).join(" - ");
-
+    "Sorteio processado: " + numeros.map(pad2).join(" - ");
   return numeros;
 }
 
-// ======= VERIFICAÇÃO =======
-async function verificarResultados(){
-  const numeros=processarEntrada();
-  if(!numeros) return;
+function getCampo(obj, nomes){
+  for(const n of nomes){
+    if(obj && Object.prototype.hasOwnProperty.call(obj, n) && obj[n] != null && obj[n] !== ""){
+      return obj[n];
+    }
+  }
+  return "";
+}
 
-  let bolao;
+async function verificarResultados(){
+  const sorteio = processarEntrada();
+  if(!sorteio) return;
+
+  const status = document.getElementById("status");
+  status.textContent = "Carregando JSONs...";
+
+  let bolao, usuarios;
   try{
-    const res=await fetch("bolao_lotofacil.json");
-    bolao=await res.json();
-  }catch{
-    alert("Erro ao carregar bolao_lotofacil.json");
+    const [b,u] = await Promise.all([
+      fetch("bolao_lotofacil.json"),
+      fetch("usuarios_com_palpite_lotofacil.json")
+    ]);
+    if(!b.ok || !u.ok) throw new Error("Falha ao buscar JSONs");
+    bolao = await b.json();
+    usuarios = await u.json();
+  }catch(e){
+    console.error(e);
+    status.textContent = "Erro ao carregar JSONs. Verifique se os arquivos estão na mesma pasta do HTML no GitHub Pages.";
+    alert("Erro ao carregar JSONs.");
     return;
   }
 
-  const results=document.getElementById("results");
-  results.innerHTML="";
-  let premiou=false;
+  // Mapa: jogoNormalizado -> lista de donos
+  // Aceita chaves: "Usuário" / "Usuários" / "JOGADOR"
+  // Aceita "Jogo 01", "Jogo 02"... e também aceita "JOGO" se existir
+  const donosPorJogo = new Map();
 
-  const parseJogo=j=>j.split(/[^0-9]+/).map(n=>parseInt(n,10));
-  const contar=j=>j.filter(n=>numeros.includes(n)).length;
+  for(const u of usuarios){
+    const nomeUsuario = getCampo(u, ["Usuário","Usuários","JOGADOR"]) || "Participante";
 
-  bolao.forEach(linha=>{
-    const dezenas=parseJogo(linha["JOGO"]);
-    const acertos=contar(dezenas);
+    // Pega campos "Jogo 01", "Jogo 02", etc.
+    const chavesJogos = Object.keys(u).filter(k => /^Jogo\s*\d+$/i.test(k));
+    // Se vier no formato diferente (ex.: "JOGO"), também tenta
+    if(Object.prototype.hasOwnProperty.call(u,"JOGO")) chavesJogos.push("JOGO");
 
-    let msg="";
-    if(acertos===6) msg="Vocês Ganharam a Mega Sena!";
-    else if(acertos===5) msg="Vocês Ganharam a Quina!";
-    else if(acertos===4) msg="Vocês Ganharam a Quadra!";
-    else return;
+    for(const chave of chavesJogos){
+      const jogoNorm = normalizarJogoQualquer(u[chave]);
+      if(!jogoNorm) continue;
 
-    premiou=true;
-
-    const card=document.createElement("div");
-    card.className="card";
-    card.innerHTML=`
-      <div class="title">${msg}</div>
-      <div class="meta">
-        Bolão: <b>${linha["NOME BOLAO"]||""}</b> |
-        Linha: <b>${linha["ID JOGO"]||""}</b> |
-        Acertos: <b>${acertos}</b>
-      </div>
-    `;
-    results.appendChild(card);
-  });
-
-  if(!premiou){
-    results.innerHTML="<div class='card'><b>Não Foi Desta Vez!</b></div>";
+      if(!donosPorJogo.has(jogoNorm)) donosPorJogo.set(jogoNorm, []);
+      donosPorJogo.get(jogoNorm).push({ usuario: nomeUsuario, campo: chave });
+    }
   }
-}
-</script>
-</head>
 
-<body>
+  const results = document.getElementById("results");
+  results.innerHTML = "";
 
-<h1>Verificador Mega-Sena</h1>
-<div class="badge">
-Digite <b>6 dezenas</b> (01 a 60) — ex.: <code>010203040506</code> ou <code>01-02-03-04-05-06</code>
-</div>
+  const contarAcertos = (jogoNums) => jogoNums.filter(n => sorteio.includes(n)).length;
 
-<input id="dezenas" type="text" placeholder="Digite as 6 dezenas do sorteio" />
-<button onclick="verificarResultados()">Verificar</button>
+  let premiou = false;
 
-<div id="status"></div>
-<p id="resultadoEntrada"></p>
-<div id="results"></div>
+  for(const linha of bolao){
+    const jogoBruto = getCampo(linha, ["JOGO","Jogo","jogo"]);
+    const jogoNorm = normalizarJogoQualquer(jogoBruto);
+    if(!jogoNorm) continue;
 
-</body>
-</html>
+    const dezenasLinha = jogoNorm.split("-").map(x => parseInt(x,10));
+    const acertos = contarAcertos(dezenasLinha);
+
+    let msg = "";
+    if(acertos === 6) msg = "Vocês Ganharam a Mega Sena!";
+    else if(acertos === 5) msg = "Voces Ganharam a Quina!";
+    else if(acertos === 4) msg = "Vocês Ganharam a Quadra!";
+    else
+
 
