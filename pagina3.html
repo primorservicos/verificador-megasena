@@ -1,187 +1,264 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Verificador Mega-Sena</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verificador Mega-Sena</title>
+  <style>
+    body{
+      margin:0;padding:0;font-family:Arial,sans-serif;background:#0b1354;color:#fff;
+      min-height:100vh;padding:20px;
+      display:flex;flex-direction:column;align-items:center;
+    }
+    h1{margin:10px 0 6px}
+    .badge{opacity:.9;font-size:13px;text-align:center;max-width:920px}
+    input{
+      margin:12px 0;padding:12px;font-size:18px;border-radius:6px;border:none;
+      width:92%;max-width:520px;text-align:center
+    }
+    button{
+      padding:10px 25px;font-size:18px;background:#fff;color:#0b1354;border:none;
+      border-radius:6px;cursor:pointer
+    }
+    button:hover{background:#ddd}
+    #resultadoEntrada{margin-top:10px;font-size:14px;opacity:.95;text-align:center}
+    #status{margin-top:10px;font-size:13px;opacity:.95;white-space:pre-wrap;text-align:center;max-width:920px}
+    #results{margin-top:20px;width:100%;max-width:920px}
+    .card{
+      background:rgba(255,255,255,.08);padding:15px;margin:10px 0;border-radius:8px;
+      border:1px solid rgba(255,255,255,.15)
+    }
+    .title{font-weight:700;font-size:18px;margin-bottom:8px}
+    .meta{font-size:13px;line-height:1.5}
+    code{background:rgba(255,255,255,.12);padding:2px 6px;border-radius:6px}
+    .warn{color:#ffd966}
+    .errbox{
+      display:none;
+      width:100%;
+      max-width:920px;
+      margin-top:12px;
+      background:rgba(255,0,0,.18);
+      border:1px solid rgba(255,0,0,.35);
+      padding:12px;
+      border-radius:8px;
+      white-space:pre-wrap;
+      font-size:13px;
+    }
+  </style>
+</head>
 
-<style>
-  body{
-    margin:0;padding:0;font-family:Arial,sans-serif;background:#0b1354;color:#fff;
-    display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px
-  }
-  h1{font-size:24px;margin:10px 0;text-align:center}
-  .badge{font-size:13px;opacity:.9;margin-bottom:10px;text-align:center;max-width:900px}
-  input{
-    margin:12px 0;padding:12px;font-size:18px;border-radius:6px;border:none;
-    width:92%;max-width:520px;text-align:center
-  }
-  button{
-    padding:10px 25px;font-size:18px;background:#fff;color:#0b1354;border:none;
-    border-radius:6px;cursor:pointer
-  }
-  button:hover{background:#ddd}
-  #resultadoEntrada{margin-top:10px;font-size:14px;text-align:center;opacity:.95}
-  #status{margin-top:8px;font-size:13px;opacity:.9;white-space:pre-wrap;text-align:center;max-width:900px}
-  #results{margin-top:20px;width:100%;max-width:900px}
-  .card{
-    background:rgba(255,255,255,.08);padding:15px;margin:10px 0;border-radius:8px;
-    border:1px solid rgba(255,255,255,.15)
-  }
-  .title{font-weight:bold;font-size:18px;margin-bottom:8px}
-  .meta{font-size:13px;opacity:.95;line-height:1.45}
-  code{background:rgba(255,255,255,.12);padding:1px 6px;border-radius:6px}
-  .small{font-size:12px;opacity:.9}
-</style>
+<body>
+  <h1>Verificador Mega-Sena</h1>
+  <div class="badge">
+    Digite <b>6 dezenas</b> (01 a 60). Exemplos:
+    <code>010203040506</code> ou <code>01-02-03-04-05-06</code><br/>
+    Arquivos esperados na mesma pasta:
+    <code>bolao_lotofacil.json</code> e <code>usuarios_com_palpite_lotofacil.json</code>
+  </div>
+
+  <div class="errbox" id="errbox"></div>
+
+  <input id="dezenas" type="text" placeholder="Digite as 6 dezenas do sorteio" />
+  <button id="btnVerificar">Verificar</button>
+
+  <div id="status"></div>
+  <p id="resultadoEntrada"></p>
+  <div id="results"></div>
 
 <script>
-const SORTEIO_COUNT = 6;
+(() => {
+  const SORTEIO_COUNT = 6;
 
-function pad2(n){ return String(n).padStart(2,"0"); }
-
-// Normaliza um jogo para "01-02-03-04-05-06"
-function normalizarJogoQualquer(str){
-  const nums = String(str || "")
-    .split(/[^0-9]+/)
-    .filter(Boolean)
-    .map(x => parseInt(x,10))
-    .filter(n => !Number.isNaN(n));
-
-  const filtrado = nums.filter(n => n>=1 && n<=60);
-
-  if (filtrado.length !== 6) return null;
-  if (new Set(filtrado).size !== 6) return null;
-
-  filtrado.sort((a,b)=>a-b);
-  return filtrado.map(pad2).join("-");
-}
-
-// Entrada sem separadores: exige 12 dígitos (6 dezenas * 2)
-function parseSemSeparadoresMega(digits){
-  if (digits.length !== 12) return null;
-  const nums=[];
-  for(let i=0;i<digits.length;i+=2){
-    const n=parseInt(digits.substr(i,2),10);
-    if(n<1 || n>60) return null;
-    nums.push(n);
+  const errbox = document.getElementById("errbox");
+  function showError(msg){
+    errbox.style.display = "block";
+    errbox.textContent = "ERRO NA PÁGINA:\n" + msg;
   }
-  return nums;
-}
 
-function processarEntrada(){
-  const input = document.getElementById("dezenas").value.trim();
-  const status = document.getElementById("status");
-  status.textContent = "";
+  window.addEventListener("error", (e) => {
+    showError(e.message || String(e.error || e));
+  });
 
-  const onlyDigits = input.replace(/[^0-9]/g,"");
-  let numeros = null;
+  function pad2(n){ return String(n).padStart(2,"0"); }
 
-  // Sem separadores: 010203040506
-  numeros = parseSemSeparadoresMega(onlyDigits);
+  function getCampo(obj, nomes){
+    for(const n of nomes){
+      if(obj && Object.prototype.hasOwnProperty.call(obj, n) && obj[n] != null && obj[n] !== ""){
+        return obj[n];
+      }
+    }
+    return "";
+  }
 
-  // Com separadores: 01-02-03-04-05-06 / 1 2 3 4 5 6 / etc.
-  if(!numeros){
-    const partes = input
+  function normalizarJogo(str){
+    const nums = String(str || "")
       .split(/[^0-9]+/)
       .filter(Boolean)
       .map(x => parseInt(x,10))
-      .filter(n => !Number.isNaN(n));
+      .filter(n => !Number.isNaN(n))
+      .filter(n => n>=1 && n<=60);
 
-    if(partes.length === SORTEIO_COUNT) numeros = partes;
+    if(nums.length !== 6) return null;
+    if(new Set(nums).size !== 6) return null;
+
+    nums.sort((a,b)=>a-b);
+    return nums.map(pad2).join("-");
   }
 
-  if(!numeros){
-    alert("Digite exatamente 6 dezenas (01 a 60). Ex.: 010203040506 ou 01-02-03-04-05-06");
-    return null;
-  }
-  if(numeros.some(n => n < 1 || n > 60)){
-    alert("As dezenas devem estar entre 01 e 60.");
-    return null;
-  }
-  if((new Set(numeros)).size !== SORTEIO_COUNT){
-    alert("As dezenas não podem se repetir.");
-    return null;
-  }
-
-  numeros.sort((a,b)=>a-b);
-  document.getElementById("resultadoEntrada").textContent =
-    "Sorteio processado: " + numeros.map(pad2).join(" - ");
-  return numeros;
-}
-
-function getCampo(obj, nomes){
-  for(const n of nomes){
-    if(obj && Object.prototype.hasOwnProperty.call(obj, n) && obj[n] != null && obj[n] !== ""){
-      return obj[n];
+  function parseSemSeparadoresMega(digits){
+    if(digits.length !== 12) return null; // 6 dezenas x 2 dígitos
+    const nums=[];
+    for(let i=0;i<digits.length;i+=2){
+      const n=parseInt(digits.substr(i,2),10);
+      if(n<1 || n>60) return null;
+      nums.push(n);
     }
-  }
-  return "";
-}
-
-async function verificarResultados(){
-  const sorteio = processarEntrada();
-  if(!sorteio) return;
-
-  const status = document.getElementById("status");
-  status.textContent = "Carregando JSONs...";
-
-  let bolao, usuarios;
-  try{
-    const [b,u] = await Promise.all([
-      fetch("bolao_lotofacil.json"),
-      fetch("usuarios_com_palpite_lotofacil.json")
-    ]);
-    if(!b.ok || !u.ok) throw new Error("Falha ao buscar JSONs");
-    bolao = await b.json();
-    usuarios = await u.json();
-  }catch(e){
-    console.error(e);
-    status.textContent = "Erro ao carregar JSONs. Verifique se os arquivos estão na mesma pasta do HTML no GitHub Pages.";
-    alert("Erro ao carregar JSONs.");
-    return;
+    return nums;
   }
 
-  // Mapa: jogoNormalizado -> lista de donos
-  // Aceita chaves: "Usuário" / "Usuários" / "JOGADOR"
-  // Aceita "Jogo 01", "Jogo 02"... e também aceita "JOGO" se existir
-  const donosPorJogo = new Map();
+  function processarEntrada(){
+    const input = document.getElementById("dezenas").value.trim();
+    const onlyDigits = input.replace(/[^0-9]/g,"");
 
-  for(const u of usuarios){
-    const nomeUsuario = getCampo(u, ["Usuário","Usuários","JOGADOR"]) || "Participante";
+    let nums = parseSemSeparadoresMega(onlyDigits);
 
-    // Pega campos "Jogo 01", "Jogo 02", etc.
-    const chavesJogos = Object.keys(u).filter(k => /^Jogo\s*\d+$/i.test(k));
-    // Se vier no formato diferente (ex.: "JOGO"), também tenta
-    if(Object.prototype.hasOwnProperty.call(u,"JOGO")) chavesJogos.push("JOGO");
+    if(!nums){
+      const partes = input
+        .split(/[^0-9]+/)
+        .filter(Boolean)
+        .map(x => parseInt(x,10))
+        .filter(n => !Number.isNaN(n));
+      if(partes.length === SORTEIO_COUNT) nums = partes;
+    }
 
-    for(const chave of chavesJogos){
-      const jogoNorm = normalizarJogoQualquer(u[chave]);
+    if(!nums){
+      alert("Digite exatamente 6 dezenas (01 a 60). Ex.: 010203040506 ou 01-02-03-04-05-06");
+      return null;
+    }
+
+    if(nums.some(n => n<1 || n>60)){
+      alert("As dezenas devem estar entre 01 e 60.");
+      return null;
+    }
+
+    if(new Set(nums).size !== SORTEIO_COUNT){
+      alert("As dezenas não podem se repetir.");
+      return null;
+    }
+
+    nums.sort((a,b)=>a-b);
+    document.getElementById("resultadoEntrada").textContent =
+      "Sorteio processado: " + nums.map(pad2).join(" - ");
+    return nums;
+  }
+
+  async function verificarResultados(){
+    const status = document.getElementById("status");
+    const results = document.getElementById("results");
+    status.textContent = "";
+    results.innerHTML = "";
+    errbox.style.display = "none";
+    errbox.textContent = "";
+
+    const sorteio = processarEntrada();
+    if(!sorteio) return;
+
+    status.textContent = "Carregando JSONs...";
+
+    let bolao, usuarios;
+    try{
+      const [b,u] = await Promise.all([
+        fetch("bolao_lotofacil.json", { cache: "no-store" }),
+        fetch("usuarios_com_palpite_lotofacil.json", { cache: "no-store" })
+      ]);
+
+      if(!b.ok) throw new Error("Não consegui abrir bolao_lotofacil.json (HTTP " + b.status + ")");
+      if(!u.ok) throw new Error("Não consegui abrir usuarios_com_palpite_lotofacil.json (HTTP " + u.status + ")");
+
+      bolao = await b.json();
+      usuarios = await u.json();
+    }catch(e){
+      status.textContent = "Falha ao carregar JSONs.";
+      showError(String(e));
+      return;
+    }
+
+    // Mapa: jogoNormalizado -> lista de donos
+    const donosPorJogo = new Map();
+
+    for(const u of usuarios){
+      const nomeUsuario = getCampo(u, ["Usuário","Usuários","JOGADOR"]) || "Participante";
+      const chaves = Object.keys(u).filter(k => /^Jogo\s*\d+$/i.test(k));
+      if(Object.prototype.hasOwnProperty.call(u, "JOGO")) chaves.push("JOGO");
+
+      for(const chave of chaves){
+        const jogoNorm = normalizarJogo(u[chave]);
+        if(!jogoNorm) continue;
+        if(!donosPorJogo.has(jogoNorm)) donosPorJogo.set(jogoNorm, []);
+        donosPorJogo.get(jogoNorm).push({ usuario: nomeUsuario, campo: chave });
+      }
+    }
+
+    const contarAcertos = (jogoNums) => jogoNums.filter(n => sorteio.includes(n)).length;
+
+    let premiou = false;
+
+    for(const linha of bolao){
+      const jogoBruto = getCampo(linha, ["JOGO","Jogo","jogo"]);
+      const jogoNorm = normalizarJogo(jogoBruto);
       if(!jogoNorm) continue;
 
-      if(!donosPorJogo.has(jogoNorm)) donosPorJogo.set(jogoNorm, []);
-      donosPorJogo.get(jogoNorm).push({ usuario: nomeUsuario, campo: chave });
+      const dezenasLinha = jogoNorm.split("-").map(x => parseInt(x,10));
+      const acertos = contarAcertos(dezenasLinha);
+
+      let msg = "";
+      if(acertos === 6) msg = "Vocês Ganharam a Mega Sena!";
+      else if(acertos === 5) msg = "Voces Ganharam a Quina!";
+      else if(acertos === 4) msg = "Vocês Ganharam a Quadra!";
+      else continue;
+
+      premiou = true;
+
+      const idBolao = getCampo(linha, ["ID BOLÃO","ID BOLAO"]);
+      const nomeBolao = getCampo(linha, ["NOME BOLÃO","NOME BOLAO"]);
+      const idJogo = getCampo(linha, ["ID JOGO","ID_JOGO","LINHA"]);
+
+      const acertosLista = dezenasLinha
+        .filter(n => sorteio.includes(n))
+        .map(pad2).join(", ");
+
+      const donos = donosPorJogo.get(jogoNorm) || [];
+      const donoHtml = donos.length
+        ? donos.map(d => `<b>${d.usuario}</b> <span class="small">(${d.campo})</span>`).join(" | ")
+        : `<span class="warn">(Sem dono encontrado no arquivo de usuários)</span>`;
+
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="title">${msg}</div>
+        <div class="meta">
+          Bolão: <b>${nomeBolao || "-"}</b><br/>
+          ID do Bolão: <b>${idBolao || "-"}</b><br/>
+          Linha: <b>${idJogo || "-"}</b><br/>
+          Jogo: <code>${jogoNorm}</code><br/>
+          Acertos (${acertos}): ${acertosLista || "-"}<br/>
+          Palpite de: ${donoHtml}
+        </div>
+      `;
+      results.appendChild(card);
     }
+
+    if(!premiou){
+      results.innerHTML = `<div class="card"><b>Não Foi Desta Vez!</b></div>`;
+    }
+
+    status.textContent = "Conferência concluída.";
   }
 
-  const results = document.getElementById("results");
-  results.innerHTML = "";
-
-  const contarAcertos = (jogoNums) => jogoNums.filter(n => sorteio.includes(n)).length;
-
-  let premiou = false;
-
-  for(const linha of bolao){
-    const jogoBruto = getCampo(linha, ["JOGO","Jogo","jogo"]);
-    const jogoNorm = normalizarJogoQualquer(jogoBruto);
-    if(!jogoNorm) continue;
-
-    const dezenasLinha = jogoNorm.split("-").map(x => parseInt(x,10));
-    const acertos = contarAcertos(dezenasLinha);
-
-    let msg = "";
-    if(acertos === 6) msg = "Vocês Ganharam a Mega Sena!";
-    else if(acertos === 5) msg = "Voces Ganharam a Quina!";
-    else if(acertos === 4) msg = "Vocês Ganharam a Quadra!";
-    else
+  document.getElementById("btnVerificar").addEventListener("click", verificarResultados);
+})();
+</script>
+</body>
+</html>
 
 
