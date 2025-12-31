@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Verificador Mega-Sena</title>
+
   <style>
     body{
       margin:0;padding:0;font-family:Arial,sans-serif;background:#0b1354;color:#fff;
@@ -11,9 +12,8 @@
       display:flex;flex-direction:column;align-items:center;
     }
     h1{margin:10px 0 6px}
-    .badge{opacity:.9;font-size:13px;text-align:center;max-width:920px}
     input{
-      margin:12px 0;padding:12px;font-size:18px;border-radius:6px;border:none;
+      margin:14px 0;padding:12px;font-size:18px;border-radius:6px;border:none;
       width:92%;max-width:520px;text-align:center
     }
     button{
@@ -48,13 +48,8 @@
 </head>
 
 <body>
+
   <h1>Verificador Mega-Sena</h1>
-  <div class="badge">
-    Digite <b>6 dezenas</b> (01 a 60). Exemplos:
-    <code>010203040506</code> ou <code>01-02-03-04-05-06</code><br/>
-    Arquivos esperados na mesma pasta:
-    <code>bolao_lotofacil.json</code> e <code>usuarios_com_palpite_lotofacil.json</code>
-  </div>
 
   <div class="errbox" id="errbox"></div>
 
@@ -72,7 +67,7 @@
   const errbox = document.getElementById("errbox");
   function showError(msg){
     errbox.style.display = "block";
-    errbox.textContent = "ERRO NA PÁGINA:\n" + msg;
+    errbox.textContent = "ERRO:\n" + msg;
   }
 
   window.addEventListener("error", (e) => {
@@ -106,7 +101,7 @@
   }
 
   function parseSemSeparadoresMega(digits){
-    if(digits.length !== 12) return null; // 6 dezenas x 2 dígitos
+    if(digits.length !== 12) return null;
     const nums=[];
     for(let i=0;i<digits.length;i+=2){
       const n=parseInt(digits.substr(i,2),10);
@@ -132,15 +127,13 @@
     }
 
     if(!nums){
-      alert("Digite exatamente 6 dezenas (01 a 60). Ex.: 010203040506 ou 01-02-03-04-05-06");
+      alert("Digite exatamente 6 dezenas (01 a 60).");
       return null;
     }
-
     if(nums.some(n => n<1 || n>60)){
       alert("As dezenas devem estar entre 01 e 60.");
       return null;
     }
-
     if(new Set(nums).size !== SORTEIO_COUNT){
       alert("As dezenas não podem se repetir.");
       return null;
@@ -163,7 +156,7 @@
     const sorteio = processarEntrada();
     if(!sorteio) return;
 
-    status.textContent = "Carregando JSONs...";
+    status.textContent = "Conferindo...";
 
     let bolao, usuarios;
     try{
@@ -171,26 +164,20 @@
         fetch("bolao_lotofacil.json", { cache: "no-store" }),
         fetch("usuarios_com_palpite_lotofacil.json", { cache: "no-store" })
       ]);
-
-      if(!b.ok) throw new Error("Não consegui abrir bolao_lotofacil.json (HTTP " + b.status + ")");
-      if(!u.ok) throw new Error("Não consegui abrir usuarios_com_palpite_lotofacil.json (HTTP " + u.status + ")");
-
+      if(!b.ok) throw new Error("Erro ao abrir bolao");
+      if(!u.ok) throw new Error("Erro ao abrir usuarios");
       bolao = await b.json();
       usuarios = await u.json();
     }catch(e){
-      status.textContent = "Falha ao carregar JSONs.";
       showError(String(e));
       return;
     }
 
-    // Mapa: jogoNormalizado -> lista de donos
     const donosPorJogo = new Map();
 
     for(const u of usuarios){
       const nomeUsuario = getCampo(u, ["Usuário","Usuários","JOGADOR"]) || "Participante";
       const chaves = Object.keys(u).filter(k => /^Jogo\s*\d+$/i.test(k));
-      if(Object.prototype.hasOwnProperty.call(u, "JOGO")) chaves.push("JOGO");
-
       for(const chave of chaves){
         const jogoNorm = normalizarJogo(u[chave]);
         if(!jogoNorm) continue;
@@ -204,17 +191,16 @@
     let premiou = false;
 
     for(const linha of bolao){
-      const jogoBruto = getCampo(linha, ["JOGO","Jogo","jogo"]);
-      const jogoNorm = normalizarJogo(jogoBruto);
+      const jogoNorm = normalizarJogo(getCampo(linha, ["JOGO","Jogo","jogo"]));
       if(!jogoNorm) continue;
 
       const dezenasLinha = jogoNorm.split("-").map(x => parseInt(x,10));
       const acertos = contarAcertos(dezenasLinha);
 
-      let msg = "";
-      if(acertos === 6) msg = "Vocês Ganharam a Mega Sena!";
-      else if(acertos === 5) msg = "Voces Ganharam a Quina!";
-      else if(acertos === 4) msg = "Vocês Ganharam a Quadra!";
+      let msg="";
+      if(acertos===6) msg="Vocês Ganharam a Mega Sena!";
+      else if(acertos===5) msg="Vocês Ganharam a Quina!";
+      else if(acertos===4) msg="Vocês Ganharam a Quadra!";
       else continue;
 
       premiou = true;
@@ -229,8 +215,8 @@
 
       const donos = donosPorJogo.get(jogoNorm) || [];
       const donoHtml = donos.length
-        ? donos.map(d => `<b>${d.usuario}</b> <span class="small">(${d.campo})</span>`).join(" | ")
-        : `<span class="warn">(Sem dono encontrado no arquivo de usuários)</span>`;
+        ? donos.map(d => `<b>${d.usuario}</b> (${d.campo})`).join(" | ")
+        : `<span class="warn">(Sem dono identificado)</span>`;
 
       const card = document.createElement("div");
       card.className = "card";
@@ -258,7 +244,9 @@
   document.getElementById("btnVerificar").addEventListener("click", verificarResultados);
 })();
 </script>
+
 </body>
 </html>
+
 
 
